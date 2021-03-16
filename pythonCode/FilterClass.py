@@ -42,9 +42,10 @@ class FilterClass:
             plt.show()
         self.filteredSamples = fft.irfft(filtered_freq);
 
+    # output of convolution is the length of the signal + the length of the filter kernel - 1
+    # W. Smith, Digital signal processing, Chapter 6.
     def __convolveInputSide__(self, signal, kernel):
-        # output of convolution is the length of the signal + the length of the kernel - 1
-        # W. Smith, Digital signal processing, Chapter 6.
+
         output = np.zeros(len(signal) + len(kernel) - 1)
 
         for signalIndex in range(len(signal)):
@@ -52,9 +53,9 @@ class FilterClass:
                 output[signalIndex + kernelIndex] = output[signalIndex + kernelIndex] + signal[signalIndex] * kernel[kernelIndex]
         return output
 
+    # output of convolution is the length of the signal + the length of the filter kernel - 1
+    # W. Smith, Digital signal processing, Chapter 6.
     def __convolveOutputSide__(selfself, signal, kernel):
-        # output of convolution is the length of the signal + the length of the kernel - 1
-        # W. Smith, Digital signal processing, Chapter 6.
         output = np.zeros(len(signal) + len(kernel) - 1)
         output2 = np.ones(len(signal) + len(kernel) - 1)
         outputRange = range(len(output))
@@ -70,6 +71,8 @@ class FilterClass:
                     output2[outputIndex] = output2[outputIndex] + kernel[kernelIndex] * signal[outputIndex - kernelIndex]
         return output, output2
 
+    # Perform convolution
+    # doMine performs it using the convolution coded here if true, uses python's convolution if false
     def filterSignal(self, samples, filterMin, filterMax, doMine):
         newSamples = np.zeros(1)
         if doMine:
@@ -101,10 +104,12 @@ class FilterClass:
 
     def __plotOriginalAndConvolved__(self, doMine, newSamples, samples):
         plt.figure()
-        plt.title("Original")
-        plt.plot(samples, 'r')
-        plt.plot(newSamples, 'b', alpha=0.5)
+        plt.plot(samples, 'r', label='Original')
+        plt.plot(newSamples, 'b', alpha=0.5, label='Filtered')
         plt.title("Filtered My Convolution: {}".format(doMine))
+        plt.legend(loc=4)
+        plt.xlabel("Sample Number");
+        plt.ylabel("Amplitude");
         plt.show()
 
     '''
@@ -142,10 +147,19 @@ class FilterClass:
         maxFft = fft.rfft(filterMax)
         if self.doPlot:
             plt.figure()
-            plt.title("Filter Frequency Spectra")
+            plt.title("Comb Filter Frequency Spectra")
             plt.plot(minFft, 'r', alpha=0.5, label='Min Filter')
             plt.plot(maxFft, 'b', alpha=0.5, label='Max Filter')
             plt.xlabel("Frequency")
+            plt.ylabel('Amplitude')
+            plt.legend(loc=4)
+            plt.show()
+
+            plt.figure()
+            plt.title("Comb Filter Impulse Response Plot")
+            plt.plot(filterMin, 'r', alpha=0.5, label="Min Filter")
+            plt.plot(filterMax, 'b', alpha=0.5, label="Max Filter")
+            plt.xlabel("Impulse Sample No.")
             plt.ylabel('Amplitude')
             plt.legend(loc=4)
             plt.show()
@@ -158,17 +172,20 @@ class FilterClass:
     def filterAudioStepped(self, filterMin, filterMax, doManualConvolution):
         self.__filterAudioStepped__(self.wav.samplesMono, filterMin, filterMax, doManualConvolution)
 
-Test = False
+Test = True
+# TEST of a simple sine signal convolved using input side, output side and using python's implementation
+# All 3 are plotted on top of each other to check that they produce the same result.
+#
 if Test:
     # Define wav filename used:
     s1Filename = "../audio/carrier.wav"
     s2Filename = "../audio/rockA.wav"
     s3Filename = "../audio/rockB.wav"
-    display(s1Filename)
-    wavClass = WavClass(s2Filename, False)
+    wavClass = WavClass()
     sig = np.abs(np.sin(2 * np.pi * 0.05 * np.arange(-80, 1)))
     plt.figure()
     plt.plot(sig)
+    plt.title("Signal for test")
     plt.show()
     kernel = np.zeros(30)
     kernel[0] = 1.0
@@ -181,16 +198,20 @@ if Test:
     plt.plot(inputSide, 'r', label='iSide')
     plt.plot(outputSide, 'b', alpha = 0.5, label='oSide')
     plt.plot(conv, 'g', alpha=0.5, label='oSide2')
+    plt.title("PLot of 3 convolution operations: input side, output side and Python's")
     plt.legend()
     plt.show()
-Test = True
+
+Test = False
+# TEST creating the convolution comb filter min max max values which need to be used in the
+# interpolation. Plot the impulse response as well as the frequency spectrum of the filter.
 if Test:
     # Define wav filename used:
     s1Filename = "../audio/carrier.wav"
     s2Filename = "../audio/rockA.wav"
     s3Filename = "../audio/rockB.wav"
     display(s1Filename)
-    wavClass = WavClass(s2Filename, False)
+    wavClass = WavClass(wavFileName=s2Filename, doPlots=False)
     filterClass = FilterClass(wavClass, True)
     #filterClass.filterAudio()
     filterMin, filterMax = filterClass.createCombFilters(64, 8, 32)

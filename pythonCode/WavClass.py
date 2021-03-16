@@ -21,20 +21,25 @@ class WavClass:
     # isMono boolean if mono samples is 1D, Fals it is 2D
     # samplesMono the samples converted to mono
 
+    def __init__(self, wavFileName=None, doPlots=False, rawSamples=[], rawSampleRate=None):
+        if wavFileName != None:
+            self.initFromWavFile(wavFileName, doPlots)
+        elif len(rawSamples) > 0:
+            self.initFromSamples(rawSamples, rawSampleRate, doPlots)
+
     # constructor loads the given file, converts it to 1 channel mono if it is stereo
     # plots the sample, and stereo correlation information
-    def __init__(self, wavFileName, doPlots):
+    def initFromWavFile(self, wavFileName, doPlots):
         self.sampleRate, self.samples = wavfile.read(wavFileName);
         self.filename = wavFileName;
         self.doPlots = doPlots
-        if (self.samples.ndim == 2):
-            display("Read file: {} {} samples, rate {}".format(self.filename, len(self.samples[:,0]), self.sampleRate))
-            self.__convertToMono__()
-        else:
-            display("Read file: {} {} samples, rate {}".format(self.filename, len(self.samples[:]), self.sampleRate))
-            self.samplesMono = self.samples
-            self.__plotMono__("One Channel Sample File Plot")
 
+    def initFromSamples(self, samples, sampleRate, doPlots):
+        self.samples = samples
+        self.sampleRate = sampleRate
+        self.filename = "RawSamplesSUpplied.noFile"
+        self.doPlots = doPlots
+        self.__convertToMonoIfStereo__()
 
     # Plot stereo samples, and mono samples on the same graph to see the result of
     # a conversion from stereo to mono
@@ -123,6 +128,16 @@ class WavClass:
         plt.show()
         print("Max coefficient: ", correlationCoefficients[0:maxCoefficientIndex])
 
+    # if the samples member is two dimensional, try converting to mono
+    def __convertToMonoIfStereo__(self):
+        if (self.samples.ndim == 2):
+            display("Read file: {} {} samples, rate {}".format(self.filename, len(self.samples[:, 0]), self.sampleRate))
+            self.__convertToMono__()
+        else:
+            display("Read file: {} {} samples, rate {}".format(self.filename, len(self.samples[:]), self.sampleRate))
+            self.samplesMono = self.samples
+            self.__plotMono__("One Channel Sample File Plot")
+
     # Convert the stereo sample to a mono sample, displays a plot of samples and conversion
     #
     def __convertToMono__(self):
@@ -152,6 +167,6 @@ if TEST:
     s2Filename = "../audio/rockA.wav"
     s3Filename = "../audio/rockB.wav"
     display(s2Filename)
-    wavClass = WavClass(s2Filename)
+    wavClass = WavClass(wavFileName=s2Filename,doPlots=True)
     # code below only works in a notebook:
     #display(Audio(wavClass.samples, rate=wavClass.sampleRate, normalize=False));
