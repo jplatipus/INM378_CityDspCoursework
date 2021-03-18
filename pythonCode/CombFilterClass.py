@@ -51,15 +51,54 @@ class CombFilterClass:
         controlSignal = controlSignal[:numSamples]
         # plot control signal:
         if self.doPlot:
-            plt.figure()
-            plt.plot(controlSignal)
-            plt.title("Comb Filter Control Signal (sine 2Hz)")
-            plt.xlabel("Sample Number")
-            plt.ylabel('Amplitude')
-            plt.show()
+            self.plotControlSignal(controlSignal)
         # return control signal:
         return controlSignal
+
+    def plotControlSignal(self, controlSignal):
+        plt.figure()
+        plt.plot(controlSignal)
+        plt.title("Comb Filter Control Signal (sine 2Hz)")
+        plt.xlabel("Sample Number")
+        plt.ylabel('Amplitude')
+        plt.show()
+
+    def CreateCombFilters(self, minDelay=8, maxDelay=32, filterSize=64):
+        # impulse signal for filter1
+        filterMin = np.zeros(filterSize)
+        filterMin[0] = 1
+        filterMin[minDelay] = 0.75
+        # impulse signal for filter 2
+        filterMax = np.zeros(filterSize)
+        filterMax[0] = 1
+        filterMax[maxDelay] = 0.75
+        if (self.doPlot):
+            self.plotFilters(filterMin, filterMax)
+        return filterMin, filterMax
+
+    def plotFilters(self, filterMin, filterMax):
+        # plot the filters' frequency spectrum
+        minFft = fft.rfft(filterMin)
+        maxFft = fft.rfft(filterMax)
+        plt.figure()
+        plt.title("Comb Filter Frequency Spectra")
+        plt.plot(minFft, 'r', alpha=0.5, label='Min Filter')
+        plt.plot(maxFft, 'b', alpha=0.5, label='Max Filter')
+        plt.xlabel("Frequency")
+        plt.ylabel('Amplitude')
+        plt.legend(loc=4)
+        plt.show()
+
+        plt.figure()
+        plt.title("Comb Filter Impulse Response Plot")
+        plt.plot(filterMin, 'r', alpha=0.5, label="Min Filter")
+        plt.plot(filterMax, 'b', alpha=0.5, label="Max Filter")
+        plt.xlabel("Impulse Sample No.")
+        plt.ylabel('Amplitude')
+        plt.legend(loc=4)
+        plt.show()
 
 TEST = True
 filter = CombFilterClass()
 filter.createControlSignal(800, 1600)
+filter.CreateCombFilters()
