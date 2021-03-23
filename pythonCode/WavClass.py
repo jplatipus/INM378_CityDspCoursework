@@ -1,6 +1,8 @@
 #
 # Code for audio file loading and conversion to mono
 #
+import sys
+
 from scipy.io import wavfile
 import matplotlib.pyplot as plt
 import numpy as np
@@ -33,6 +35,7 @@ class WavClass:
         self.sampleRate, self.samples = wavfile.read(wavFileName);
         self.filename = wavFileName;
         self.doPlots = doPlots
+        self.__convertToMonoIfStereo__()
 
     def initFromSamples(self, samples, sampleRate, doPlots):
         self.samples = samples
@@ -161,12 +164,17 @@ class WavClass:
         self.__plotMono__("Resulting Mono Sample")
 # Set to True to test this class
 TEST = False
+if 'google.colab' in sys.modules or 'jupyter_client' in sys.modules:
+    Test = False
+
 if TEST:
     # Define wav filename used:
     s1Filename = "../audio/carrier.wav"
     s2Filename = "../audio/rockA.wav"
     s3Filename = "../audio/rockB.wav"
     display(s2Filename)
-    wavClass = WavClass(wavFileName=s2Filename,doPlots=True)
+    wavClass = WavClass(wavFileName=s1Filename,doPlots=True)
     # code below only works in a notebook:
     #display(Audio(wavClass.samples, rate=wavClass.sampleRate, normalize=False));
+    from SoundPlayer import SoundPlayer
+    SoundPlayer().playWav(wavClass.samplesMono, wavClass.sampleRate)
