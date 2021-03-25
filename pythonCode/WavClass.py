@@ -20,7 +20,7 @@ class WavClass:
     # samples the samples as read from the wav file
     # sampleRate the sample rate
     # filename the wav file name
-    # isMono boolean if mono samples is 1D, Fals it is 2D
+    # isMono boolean if mono samples is 1D, False it is 2D
     # samplesMono the samples converted to mono
 
     def __init__(self, wavFileName=None, doPlots=False, rawSamples=[], rawSampleRate=None):
@@ -28,11 +28,16 @@ class WavClass:
             self.initFromWavFile(wavFileName, doPlots)
         elif len(rawSamples) > 0:
             self.initFromSamples(rawSamples, rawSampleRate, doPlots)
+        self.numSamples = len(self.samplesMono)
 
     # constructor loads the given file, converts it to 1 channel mono if it is stereo
     # plots the sample, and stereo correlation information
     def initFromWavFile(self, wavFileName, doPlots):
-        self.sampleRate, self.samples = wavfile.read(wavFileName);
+        self.sampleRate, samples = wavfile.read(wavFileName);
+        # To avoid warnings and errors of the kind:
+        #   RuntimeWarning: overflow encountered in short_scalars
+        # convert samples from short to float:
+        self.samples = samples.astype(np.float)
         self.filename = wavFileName;
         self.doPlots = doPlots
         self.__convertToMonoIfStereo__()
@@ -132,6 +137,7 @@ class WavClass:
         print("Max coefficient: ", correlationCoefficients[0:maxCoefficientIndex])
 
     # if the samples member is two dimensional, try converting to mono
+    # stores the conversion to mono in self.samplesMono
     def __convertToMonoIfStereo__(self):
         if (self.samples.ndim == 2):
             display("Read file: {} {} samples, rate {}".format(self.filename, len(self.samples[:, 0]), self.sampleRate))
@@ -142,7 +148,8 @@ class WavClass:
             self.__plotMono__("One Channel Sample File Plot")
 
     # Convert the stereo sample to a mono sample, displays a plot of samples and conversion
-    #
+    # store the mono version in self.samplesMono
+    # expects self.samples to be 2 dimensional
     def __convertToMono__(self):
         display("Converted to mono: {}".format(self.filename))
         # calculate correlation coefficient
@@ -177,4 +184,4 @@ if TEST:
     # code below only works in a notebook:
     #display(Audio(wavClass.samples, rate=wavClass.sampleRate, normalize=False));
     from SoundPlayer import SoundPlayer
-    SoundPlayer().playWav(wavClass.samplesMono, wavClass.sampleRate)
+    SoundPlayer().playWav(wavClass.samples, wavClass.sampleRate)
