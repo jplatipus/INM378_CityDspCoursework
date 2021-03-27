@@ -107,11 +107,12 @@ if TEST:
     s1Filename = "../audio/carrier.wav"
     s2Filename = "../audio/rockA.wav"
     s3Filename = "../audio/rockB.wav"
-    wavClass = WavClass(wavFileName=s2Filename, doPlots=False)
+    wavClass = WavClass(wavFileName=s1Filename, doPlots=False)
     controlClass = ControlClass(wavClass.sampleRate, wavClass.numSamples, frequencyHz=1, maxAmplitude=1.0, doPlot=True)
     filter = CombFilterClass(controlClass, minDelay=4, maxDelay=32, filterSize=64, doPlot=True)
     newSamples = filter.filterAudioInputSide(wavClass.samplesMono)
     newWavCLass = WavClass(rawSamples=newSamples, rawSampleRate=wavClass.sampleRate)
     filter.plotOriginalAndConvolved(newSamples, wavClass.samplesMono, "Original and Filtered Signal")
+    filter.plotFilters()
     SoundPlayer().playWav(newSamples, wavClass.sampleRate)
 

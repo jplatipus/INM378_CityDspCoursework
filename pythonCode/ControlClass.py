@@ -14,7 +14,7 @@ class ControlClass:
     #  amplitude: the maximum value of the sine
     # Sets member:
     #  self.controlSignal: array of repeating sines
-    def __init__(self, sampleRate=800, numSamples=1600, frequencyHz=2, maxAmplitude=1.0, doPlot=False):
+    def __init__(self, sampleRate, numSamples, frequencyHz=2, maxAmplitude=1.0, doPlot=False):
         self.sampleRate = sampleRate
         self.numSamples = numSamples
         self.frequency = frequencyHz
@@ -74,7 +74,7 @@ Test = False
 if 'google.colab' in sys.modules or 'jupyter_client' in sys.modules:
     Test = False
 if Test:
-    control = ControlClass(maxAmplitude=0.75, doPlot=True)
+    control = ControlClass(sampleRate=800, numSamples=1600, maxAmplitude=0.75, doPlot=True)
     control.plotControlSignal()
     filterMin = np.zeros(64)
     filterMin[0] = 1

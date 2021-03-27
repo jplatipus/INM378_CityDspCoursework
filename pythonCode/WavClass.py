@@ -43,7 +43,7 @@ class WavClass:
         self.__convertToMonoIfStereo__()
 
     def initFromSamples(self, samples, sampleRate, doPlots):
-        self.samples = samples
+        self.samples = samples.astype(np.float)
         self.sampleRate = sampleRate
         self.filename = "RawSamplesSUpplied.noFile"
         self.doPlots = doPlots
