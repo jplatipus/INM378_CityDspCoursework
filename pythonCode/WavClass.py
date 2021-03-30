@@ -40,14 +40,14 @@ class WavClass:
         self.samples = samples.astype(np.float)
         self.filename = wavFileName;
         self.doPlots = doPlots
-        self.__convertToMonoIfStereo__()
+        self.__preprocessSamples__()
 
     def initFromSamples(self, samples, sampleRate, doPlots):
         self.samples = samples.astype(np.float)
         self.sampleRate = sampleRate
         self.filename = "RawSamplesSUpplied.noFile"
         self.doPlots = doPlots
-        self.__convertToMonoIfStereo__()
+        self.__preprocessSamples__()
 
     # Plot stereo samples, and mono samples on the same graph to see the result of
     # a conversion from stereo to mono
@@ -81,15 +81,26 @@ class WavClass:
         plt.show()
 
     # Using Audacity, on RockA.wav, it can be seen that the stereo channels are not in phase,
-    # and one channel has been inverted. This function finds how many samples to shift and invert
+    # and one channel has been inverted. This function finds how many samples to shift and inverts (if needed)
     # the respective channels
-    def __alignSamples__(self):
+    # input:
+    #   flipChannel: channel to invert, None if no inversion needed
+    #
+    def __alignSamples__(self, flipChannel=None):
         correlationCoefficients = np.zeros(self.sampleRate)
-        channel1Section = self.samples[0:self.sampleRate,0] * -1
+        channel1Section = self.samples[0:self.sampleRate,0]
         channel2Section = self.samples[0:self.sampleRate,1]
         channel1RightShift = channel1Section
         maxCoefficient = 0.0
         maxCoefficientIndex = 0
+
+        #Invert the sign of one channel?
+        if flipChannel != None:
+            self.samples[:,flipChannel] = self.samples[:,flipChannel] * -1
+            # check correllation maybe this fixed the correlation
+            rawCoeff = np.dot(self.samples[:, 0], self.samples[:, 1]) / np.sqrt(np.dot(self.samples[:, 0], self.samples[:, 0]) * np.dot(self.samples[:, 1], self.samples[:, 1]))
+            if abs(rawCoeff) > 0.8:
+                return
 
         # loop shifting channel 1 to the right to find the highest correlation coefficient between channel 1 & 2
         for offset in range(0,int(self.sampleRate/10)):
@@ -105,7 +116,7 @@ class WavClass:
         # if the correlation coefficient is > 0.8, we can correct the stereo sample
         if maxCoefficient > 0.8:
             # channel1 is inverted & prepended with maxCoefficientIndex zeros (right shifted)
-            channel1 = self.samples[:,0] * -1
+            channel1 = self.samples[:,0]
             channel1 = np.concatenate((np.zeros(maxCoefficientIndex), channel1), axis=None)
             # channel 2 is appended with zeros to make length same as channel1
             channel2 = self.samples[:,1]
@@ -136,41 +147,77 @@ class WavClass:
         plt.show()
         print("Max coefficient: ", correlationCoefficients[0:maxCoefficientIndex])
 
+    # check DC offset of sample channels is approximately zero, if not, adjust the offset
     # if the samples member is two dimensional, try converting to mono
     # stores the conversion to mono in self.samplesMono
-    def __convertToMonoIfStereo__(self):
+    def __preprocessSamples__(self):
         if (self.samples.ndim == 2):
             display("Read file: {} {} samples, rate {}".format(self.filename, len(self.samples[:, 0]), self.sampleRate))
+            mean1 = np.mean(self.samples[:, 0])
+            mean2 = np.mean(self.samples[:, 0])
+            # adjust DC offset?
+            if abs(mean1) > 0.1:
+                display("Adjusting DC offset Channel0 Mean: {} Variance: {} Std Dev: {} median {}".format(np.mean(self.samples[:, 0]),
+                                                                                  np.var(self.samples[:, 0]),
+                                                                                  np.std(self.samples[:, 0]),
+                                                                                  np.median(self.samples[:, 0])))
+                self.samples[:,0] = self.samples[:,0] - mean1
+            if abs(mean2) > 0.1:
+                display("Adjusting DC offset Channel1 Mean: {} Variance: {} Std Dev: {}".format(np.mean(self.samples[:, 1]),
+                                                                        np.var(self.samples[:, 1]),
+                                                                        np.std(self.samples[:, 1]),
+                                                                        np.median(self.samples[:, 0])))
+                self.samples[:, 1] = self.samples[:, 1] - mean1
             self.__convertToMono__()
         else:
-            display("Read file: {} {} samples, rate {}".format(self.filename, len(self.samples[:]), self.sampleRate))
+            display("Read file: {} {} samples, rate {}".format(self.filename, len(self.samples), self.sampleRate))
+            mean = np.mean(self.samples)
+            if mean > abs(0.1):
+                #adjust dc offset
+                display("Adjusting DC offset. Channel Mean: {} Variance: {} Std Dev: {}".format(np.mean(self.samples),
+                                                                      np.var(self.samples),
+                                                                      np.std(self.samples),
+                                                                      np.median(self.samples)))
+                self.samples = self.samples - mean
             self.samplesMono = self.samples
             self.__plotMono__("One Channel Sample File Plot")
+
 
     # Convert the stereo sample to a mono sample, displays a plot of samples and conversion
     # store the mono version in self.samplesMono
     # expects self.samples to be 2 dimensional
     def __convertToMono__(self):
-        display("Converted to mono: {}".format(self.filename))
+        display("Convert to mono: {}".format(self.filename))
         # calculate correlation coefficient
         rawCoeff = np.dot(self.samples[:, 0], self.samples[:, 1]) / np.sqrt(np.dot(self.samples[:, 0], self.samples[:, 0]) * np.dot(self.samples[:, 1], self.samples[:, 1]))
         self.samplesMono = self.samples[:, 0] / 2 + self.samples[:, 1] / 2;
-        if rawCoeff >= 0.8:
+        if abs(rawCoeff) >= 0.8:
             # no need to correct the samples
             # plot them:
-            self.__plotStereo__("Good conversion to mono (correlation coefficient >= 0.8:) {}".format(rawCoeff));
+            self.__plotStereo__("Good conversion to mono abs(correlation coefficient) >= 0.8: {}".format(abs(rawCoeff)));
         else:
             # samples need correcting, plot the original:
-            self.__plotStereo__("Poor conversion to mono (correlation coefficient < 0.8): {}".format(rawCoeff))
+            self.__plotStereo__("Poor conversion to mono abs(correlation coefficient) < 0.8, needs phase alignment: {}".format(abs(rawCoeff)))
             # correct the samples
-            self.__alignSamples__()
+            if (rawCoeff < 0):
+                # negative value implies there is cancellation happening, invert one of the channels
+                # as well as checking for correlation again, possibly shifting one channel
+                display("One channel needs inverting, the correlation coefficient is < 0")
+                self.__alignSamples__(flipChannel=0)
+            else:
+                # no inverting the sign of one channel is needed, but shifting one channel may be necessary
+                self.__alignSamples()
+
+            # now the samples have been preprocessed, convert the channels to mono into self.monoSamples
             # convert to mono
             self.samplesMono = self.samples[:, 0]/2 + self.samples[:, 1]/2;
             # plot the corrected samples
-            self.__plotStereo__("Aligned conversion to mono (correlation coefficient < 0.8): {}".format(rawCoeff))
+            self.__plotStereo__("Aligned conversion to mono (correlation coefficient was < 0.8): {}".format(abs(rawCoeff)))
         self.__plotMono__("Resulting Mono Sample")
+
+
 # Set to True to test this class
-TEST = False
+TEST = True
 if 'google.colab' in sys.modules or 'jupyter_client' in sys.modules:
     Test = False
 
@@ -184,4 +231,4 @@ if TEST:
     # code below only works in a notebook:
     #display(Audio(wavClass.samples, rate=wavClass.sampleRate, normalize=False));
     from SoundPlayer import SoundPlayer
-    SoundPlayer().playWav(wavClass.samples, wavClass.sampleRate)
+    #SoundPlayer().playWav(wavClass.samples, wavClass.sampleRate)
