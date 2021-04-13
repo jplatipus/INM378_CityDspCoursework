@@ -30,7 +30,7 @@ class ImageClass:
             copy.digitLabels = copy.digitLabels[startIndex:endIndex]
         return copy
 
-    #
+    # Code refactored from the coursework's read_digit_pixels_and_labels() function
     # load all the images in the given file
     # sets self.digitPixels[] and self.digitLabels[] to the image data and labels
     # filename the file that holds the images and labels to read.
@@ -74,27 +74,6 @@ class ImageClass:
             ax.set(yticklabels=[])
             ax.set(xticklabels=[])
         plt.show()
-    '''
-    #
-    #   display the requested image
-    #
-    def displayImagePixels(self,imagePixels):
-        plt.figure()
-        plt.imshow(imagePixels)
-        plt.show()
-        print('Image of digit {}'.format(imagePixels))
-
-    def displayImagesPixels(self, imagesPixels):
-        columns = 4
-        rows = int(len(imagesPixels) / 4) + int(len(imagesPixels) % 4)
-        fig = plt.figure()
-        fig.subplots_adjust(hspace=0.6)
-        for imageIndex in range(1, len(imagesPixels)):
-            ax = fig.add_subplot(rows, columns, imageIndex)
-            ax.imshow(imagesPixels[imageIndex])
-            ax.title.set_text("Label {}".format(imagesPixels[imageIndex]))
-        plt.show()
-    '''
 
     # converts this class' images to negatives of the images
     # returns an instance of this class, as a convenience
@@ -142,7 +121,7 @@ class ImageClass:
         return self
 
 
-Test = True
+Test = False
 if 'google.colab' in sys.modules or 'jupyter_client' in sys.modules:
     Test = False
 if Test:

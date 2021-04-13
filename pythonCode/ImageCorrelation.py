@@ -133,7 +133,6 @@ if Test:
     testImages.readImages('../data/digits-test.txt')
     correlator = ImageCorrelation()
 
-Test = True
 if Test:
     print("Quick Test")
     train = trainImages.copy(0, 2)
