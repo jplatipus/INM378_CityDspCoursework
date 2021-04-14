@@ -70,11 +70,39 @@ class FinancialDataClass:
         data = data / euclidianLength
         return data
 
+    # found on:
+    # https://www.geeksforgeeks.org/how-to-create-a-single-legend-for-all-subplots-in-matplotlib/
+    def displayLegendsAndShow(self, loc='upper left'):
+        lines = []
+        labels = []
+
+        fig = plt.figure("MainFigure")
+        addedLabels = set()
+        for ax in fig.axes:
+            axlines, axlabels = ax.get_legend_handles_labels()
+            # print(Label)
+            doBreak = False
+            for axlabel in axlabels:
+                if axlabel in addedLabels:
+                    # label with the same name already added,
+                    # we don't want to repeat
+                    # subplot labels
+                    doBreak = True
+                    break
+                addedLabels.add(axlabel)
+            if doBreak:
+                break
+            lines.extend(axlines)
+            labels.extend(axlabels)
+            addedLabels.add(axlabel)
+        fig.legend(lines, labels, loc=loc)
+        plt.show()
+
     def plotPolyFitColumnOverTime(self, columnName, polyFitDegree, axis=None):
         date = self.financial['Date']
         columnData = self.financial[columnName]
         if axis == None:
-            fig = plt.figure()
+            fig = plt.figure("MainFigure")
             ax = fig.subplots()
             plt.title('Evolution of {} over time'.format(columnName))
         else:
@@ -82,55 +110,57 @@ class FinancialDataClass:
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', np.RankWarning)
             coefficients = np.polyfit(date, columnData, polyFitDegree)
-        print("np.polyfit(x, y, 3): {}".format(coefficients))
+        #print("np.polyfit(x, y, 3): {}".format(coefficients))
         coeffPolynomial = np.poly1d(coefficients)
         datePoints = np.linspace(np.min(date), np.max(date), len(date))
         columnDataPoints = coeffPolynomial(datePoints)
-        ax.plot(date, columnData, color="blue")
-        ax.plot(datePoints, columnDataPoints, '-', color='orange', alpha=0.5)
-        ax.plot(datePoints, columnData - columnDataPoints, '-', color='green', alpha=0.5)
+
+        lines = []
+        ax.plot(date, columnData, color="blue", label="Data")
+        ax.plot(datePoints, columnDataPoints, '-', color='orange', alpha=0.5, label = "Polyfit")
+        ax.plot(datePoints, columnData - columnDataPoints, '-', color='green', alpha=0.5, label="De-trended")
         if axis == None:
-            plt.show()
+            self.displayLegendsAndShow()
 
     def plotLog10ColumnOverTime(self, columnName, axis=None):
         date = self.financial['Date']
         columnData = self.financial[columnName]
         columnDataLog10 = np.log10(columnData)
         if axis == None:
-            fig = plt.figure()
+            fig = plt.figure("MainFigure")
             ax = fig.subplots()
             plt.title('Evolution of {} over time'.format(columnName))
         else:
             ax = axis
-        ax.plot(date, columnData, color="blue")
+        ax.plot(date, columnData, color="blue", label="Data")
         logAxis = ax.twinx()
-        logAxis.plot(date, columnDataLog10, '-', color='orange', alpha=0.5)
-        ax.plot(date, columnData/columnDataLog10, '-', color='green', alpha=0.5)
+        logAxis.plot(date, columnDataLog10, '-', color='orange', alpha=0.5, label="Log10")
+        ax.plot(date, columnData/columnDataLog10, '-', color='green', alpha=0.5, label="De-trended")
         if axis == None:
-            plt.show()
+            self.displayLegendsAndShow()
 
     def plotExpWeightedColumnOverTime(self, columnName, axis=None):
         date = self.financial['Date']
         columnData = self.financial[columnName]
         columnFiltered = sig.lfilter([.25],[1,-0.75], columnData)
         if axis == None:
-            fig = plt.figure()
+            fig = plt.figure("MainFigure")
             ax = fig.subplots()
             plt.title('Evolution of {} over time'.format(columnName))
         else:
             ax = axis
-        ax.plot(date, columnData, color="blue")
+        ax.plot(date, columnData, color="blue", label="Data")
         logAxis = ax.twinx()
-        ax.plot(date, columnFiltered, '-', color='orange', alpha=0.5)
-        logAxis.plot(date, columnData - columnFiltered, '-', color='green', alpha=0.5)
+        ax.plot(date, columnFiltered, '-', color='orange', alpha=0.5, label = "Exp. Weighted")
+        logAxis.plot(date, columnData - columnFiltered, '-', color='green', alpha=0.5, label="De-trended")
         if axis == None:
-            plt.show()
+            self.displayLegendsAndShow()
 
     def plotAllColumns(self, title, ployfitDegree=None):
         dataColumnIndeces = range(0, len(self.financial.dtype.names))
         columns = 3
         rows = int(len(dataColumnIndeces) / 3 + int(len(dataColumnIndeces) % 3))
-        fig = plt.figure()
+        fig = plt.figure("MainFigure")
         fig.subplots_adjust(hspace=0.6)
         fig.suptitle(title)
         date = self.financial['Date']
@@ -148,11 +178,11 @@ class FinancialDataClass:
             else:
                 title = columnName
             ax.title.set_text(title)
-        plt.show()
+        self.displayLegendsAndShow(loc ='lower right')
 
 
 
-Test = True
+Test = False
 if 'google.colab' in sys.modules or 'jupyter_client' in sys.modules:
     Test = False
 
