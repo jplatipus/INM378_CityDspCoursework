@@ -1,8 +1,10 @@
+import math
+
 import matplotlib.pyplot as plt
 import numpy as np
 import sys
-import numpy.polynomial.polynomial as poly
 import warnings
+import scipy.signal as sig
 
 from numpy.linalg import LinAlgError
 
@@ -28,16 +30,12 @@ class FinancialDataClass:
         # 'Real_Earnings',
         self.replaceColumnNansWithMax('Real_Earnings')
         # 'Cyclically_Adjusted_Price_Earnings_Ratio_PE10_or_CAPE'
-        self.replaceColumnNansWithFirstValue('Cyclically_Adjusted_Price_Earnings_Ratio_PE10_or_CAPE')
-        self.normaliseByColumn()
+        self.replaceColumnNansWithValue('Cyclically_Adjusted_Price_Earnings_Ratio_PE10_or_CAPE', 13.0)
 
-    def replaceColumnNansWithFirstValue(self, columnName):
+
+    def replaceColumnNansWithValue(self, columnName, value):
         dataColumn = self.financial[columnName]
-        min = 0.0
-        for value in dataColumn:
-            if value != np.nan:
-                min = value
-        copy = np.nan_to_num(dataColumn, copy=False, nan=min)
+        copy = np.nan_to_num(dataColumn, copy=False, nan=value)
         self.financial[columnName] = copy
 
     def replaceColumnNansWithMax(self, columnName):
@@ -46,31 +44,9 @@ class FinancialDataClass:
         maxValue = np.max(copy)
         self.financial[columnName] = np.nan_to_num(dataColumn, copy=False, nan=maxValue)
 
-    def normaliseByColumn(self):
-        columnNames = self.financial.dtype.names
-        # don't normalise the date column:
-        dataColumnIndeces = range(0, len(columnNames))
-        for columnIndex in dataColumnIndeces:
-            data = self.financial[columnNames[columnIndex]]
-            norm = np.linalg.norm(data)
-            if norm == 0:
-                continue
-            data = data / norm
-            self.financial[columnNames[columnIndex]] = data
-
-
-
     def displayDataSummary(self):
         print(self.financial.dtype.names)
         print("There are {} daily records in the file.".format(self.financial.size))
-
-    def plotColumnOverTime(self, columnName):
-        date = self.financial['Date']
-        real_price = self.financial[columnName]
-        plt.figure()
-        plt.plot(date, real_price)
-        plt.title('Evolution of {} over time'.format(columnName))
-        plt.show()
 
     def getColumnData(self, columnName):
         return self.financial[columnName]
@@ -78,9 +54,79 @@ class FinancialDataClass:
     def getColumnName(self, columnIndex):
         return self.financial.dtype.names[columnIndex]
 
+    def normaliseByColumn(self):
+        columnNames = self.financial.dtype.names
+        # don't normalise the date column:
+        dataColumnIndeces = range(1, len(columnNames))
+        for columnIndex in dataColumnIndeces:
+            data = self.financial[columnNames[columnIndex]]
+            normalized = self.normalize(data)
+            self.financial[columnNames[columnIndex]] = normalized
 
+    def normalize(self, data):
+        min = np.min(data)
+        max = np.max(data)
+        euclidianLength = math.sqrt((min ** 2) + (max ** 2))
+        data = data / euclidianLength
+        return data
 
-    def plotAllColumns(self, title, ployfitDegree):
+    def plotPolyFitColumnOverTime(self, columnName, polyFitDegree, axis=None):
+        date = self.financial['Date']
+        columnData = self.financial[columnName]
+        if axis == None:
+            fig = plt.figure()
+            ax = fig.subplots()
+            plt.title('Evolution of {} over time'.format(columnName))
+        else:
+            ax = axis
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', np.RankWarning)
+            coefficients = np.polyfit(date, columnData, polyFitDegree)
+        print("np.polyfit(x, y, 3): {}".format(coefficients))
+        coeffPolynomial = np.poly1d(coefficients)
+        datePoints = np.linspace(np.min(date), np.max(date), len(date))
+        columnDataPoints = coeffPolynomial(datePoints)
+        ax.plot(date, columnData, color="blue")
+        ax.plot(datePoints, columnDataPoints, '-', color='orange', alpha=0.5)
+        ax.plot(datePoints, columnData - columnDataPoints, '-', color='green', alpha=0.5)
+        if axis == None:
+            plt.show()
+
+    def plotLog10ColumnOverTime(self, columnName, axis=None):
+        date = self.financial['Date']
+        columnData = self.financial[columnName]
+        columnDataLog10 = np.log10(columnData)
+        if axis == None:
+            fig = plt.figure()
+            ax = fig.subplots()
+            plt.title('Evolution of {} over time'.format(columnName))
+        else:
+            ax = axis
+        ax.plot(date, columnData, color="blue")
+        logAxis = ax.twinx()
+        logAxis.plot(date, columnDataLog10, '-', color='orange', alpha=0.5)
+        ax.plot(date, columnData/columnDataLog10, '-', color='green', alpha=0.5)
+        if axis == None:
+            plt.show()
+
+    def plotExpWeightedColumnOverTime(self, columnName, axis=None):
+        date = self.financial['Date']
+        columnData = self.financial[columnName]
+        columnFiltered = sig.lfilter([.25],[1,-0.75], columnData)
+        if axis == None:
+            fig = plt.figure()
+            ax = fig.subplots()
+            plt.title('Evolution of {} over time'.format(columnName))
+        else:
+            ax = axis
+        ax.plot(date, columnData, color="blue")
+        logAxis = ax.twinx()
+        ax.plot(date, columnFiltered, '-', color='orange', alpha=0.5)
+        logAxis.plot(date, columnData - columnFiltered, '-', color='green', alpha=0.5)
+        if axis == None:
+            plt.show()
+
+    def plotAllColumns(self, title, ployfitDegree=None):
         dataColumnIndeces = range(0, len(self.financial.dtype.names))
         columns = 3
         rows = int(len(dataColumnIndeces) / 3 + int(len(dataColumnIndeces) % 3))
@@ -91,31 +137,20 @@ class FinancialDataClass:
         for dataColumnIndex in range(0, len(dataColumnIndeces)):
             ax = fig.add_subplot(rows, columns, dataColumnIndex + 1)
             columnName = self.getColumnName(dataColumnIndex)
-            columnData = self.getColumnData(columnName)
-            # plot the data
-            ax.plot(date, columnData, 'b', label="Data")
-            if columnName.endswith("CAPE"):
-                ax.title.set_text("CAPE")
+            if ployfitDegree == None:
+                self.plotExpWeightedColumnOverTime(columnName, ax)
             else:
-                ax.title.set_text(columnName)
-            self.tryPolyFit(ax, columnData, columnName, date, ployfitDegree)
-            #ax.plot(date, regressY, 'g', alpha=0.5, label="Linear Trend")
-
+                self.plotPolyFitColumnOverTime(columnName, ployfitDegree, ax)
             ax.set(yticklabels=[])
             ax.set(xticklabels=[])
+            if len(columnName) > 17:
+                title = columnName[:17]
+            else:
+                title = columnName
+            ax.title.set_text(title)
         plt.show()
 
-    def tryPolyFit(self, ax, columnData, columnName, date, polyFitDegree):
-        try:
-            print(columnName)
-            coefficients = poly.polyfit(range(0, len(date)), columnData, polyFitDegree, full=True)
-            regressY = np.polyval(coefficients[0], range(0, len(date)))
-            axTwin = ax.twinx()
-            axTwin.plot(date, regressY, 'r', alpha=0.5, label="Linear Trend")
-            return True
-        except LinAlgError:
-            print("LinAlgError for ", columnName)
-            return False
+
 
 Test = True
 if 'google.colab' in sys.modules or 'jupyter_client' in sys.modules:
@@ -123,6 +158,8 @@ if 'google.colab' in sys.modules or 'jupyter_client' in sys.modules:
 
 if Test:
     finClass = FinancialDataClass('../data/financial_data.csv')
-    finClass.plotAllColumns("Linear Trend", 1)
-    finClass.plotAllColumns("Quadratic Trend", 2)
-    finClass.displayDataSummary()
+    finClass.plotAllColumns("Linear Fit", 1)
+    finClass.plotAllColumns("Log Fit")
+    finClass.plotPolyFitColumnOverTime("Real_Price", 1)
+    finClass.plotLog10ColumnOverTime("Real_Price")
+    finClass.plotExpWeightedColumnOverTime("Real_Price")
