@@ -5,16 +5,23 @@ import numpy as np
 import sys
 import warnings
 import scipy.signal as sig
+from scipy import stats
 
 from numpy.linalg import LinAlgError
 
 warnings.simplefilter('ignore', np.RankWarning)
-
+#
+# Class wraps the financial data file as a class, provides convenience methods to access the data, removes nan's,
+# provides plotting methods.
 class FinancialDataClass:
 
+    #
+    # constructor: load the csv file, clean out nan's, replacing some with max values, others with a specified
+    # value: Cyclically_Adjusted_Price_Earnings_Ratio_PE10_or_CAPE's nan's are set to 13, after inspecting the the data,
+    # 13 is a good value for the adjusted PE ratio.
+    # sets self.financial to the data read
     def __init__(self, dataFile):
         self.financial = np.genfromtxt(dataFile, delimiter=',', skip_header=2, names=True)
-
         #'Date',
         #'SP_Comp_P',
         #'Dividend_D',
@@ -33,11 +40,18 @@ class FinancialDataClass:
         self.replaceColumnNansWithValue('Cyclically_Adjusted_Price_Earnings_Ratio_PE10_or_CAPE', 13.0)
 
 
+    #
+    # replaces nan values in the data column with the given value
+    # columnName: the name of the column to process
+    # value: the value that replaces the nan's
     def replaceColumnNansWithValue(self, columnName, value):
         dataColumn = self.financial[columnName]
         copy = np.nan_to_num(dataColumn, copy=False, nan=value)
         self.financial[columnName] = copy
 
+    #
+    # replaces nan values in the data column with the column's maximum value
+    # columnName: the name of the column to process
     def replaceColumnNansWithMax(self, columnName):
         dataColumn = self.financial[columnName]
         copy = np.nan_to_num(dataColumn, copy=True, nan=0)
@@ -47,12 +61,35 @@ class FinancialDataClass:
     def displayDataSummary(self):
         print(self.financial.dtype.names)
         print("There are {} daily records in the file.".format(self.financial.size))
+        columnNames = self.financial.dtype.names
+        # don't normalise the date column:
+        dataColumnIndeces = range(1, len(columnNames))
+        print("The file contains values that are read every month, {} months of data is {} years".format(self.financial.size, self.financial.size/12))
+        for columnIndex in dataColumnIndeces:
+            data = self.financial[columnNames[columnIndex]]
+            normalized = self.normalize(data)
+            self.financial[columnNames[columnIndex]] = normalized
+            print(self.getColumnName(columnIndex))
+            modeResult = stats.mode(data)[0][0]
+            print("\tMean: {:.4f} Variance: {:.4f} Std Dev: {:.4f}\n\tMode: {:.4f} Median: {:.4f} Skewness: {:.4f}".format(
+                np.mean(data), np.var(data), math.sqrt(np.var(data)), stats.mode(data)[0][0], np.median(data), stats.skew(data)))
+            #print("\tMean: {:.2f} Variance: {:.2f}; Std Dev: {:.2f};\n\t Mode: {:.2f}; Median: {:.2f}; Skewness: {:.2f}".format(
+            #    np.mean(data), np.var(data), math.sqrt(np.var(data)), stats.mode(data), np.median(data), stats.skew(data)))
 
-    def getColumnData(self, columnName):
-        return self.financial[columnName]
+    def getColumnData(self, columnNameOrIndex):
+        if isinstance(columnNameOrIndex, str):
+            return self.financial[columnNameOrIndex]
+        columnNames = self.financial.dtype.names
+        return self.getColumnData(columnNames[columnNameOrIndex])
 
     def getColumnName(self, columnIndex):
         return self.financial.dtype.names[columnIndex]
+
+    def getColumnIndeces(self):
+        return range(0, len(self.financial.dtype.names))
+
+    def getTotalMonthsInData(self):
+        return len(self.getColumnData("Date"))
 
     def normaliseByColumn(self):
         columnNames = self.financial.dtype.names
@@ -139,10 +176,15 @@ class FinancialDataClass:
         if axis == None:
             self.displayLegendsAndShow()
 
-    def plotExpWeightedColumnOverTime(self, columnName, axis=None):
+    def getExpWeightedColumnData(self, columnName, weight=0.25):
+        columnData = self.financial[columnName]
+        columnFiltered = sig.lfilter([weight],[1,weight - 1], columnData)
+        return columnFiltered
+
+    def plotExpWeightedColumnOverTime(self, columnName, axis=None, weight=0.25):
         date = self.financial['Date']
         columnData = self.financial[columnName]
-        columnFiltered = sig.lfilter([.25],[1,-0.75], columnData)
+        columnFiltered = self.getExpWeightedColumnData(columnName, weight)
         if axis == None:
             fig = plt.figure("MainFigure")
             ax = fig.subplots()
@@ -188,8 +230,9 @@ if 'google.colab' in sys.modules or 'jupyter_client' in sys.modules:
 
 if Test:
     finClass = FinancialDataClass('../data/financial_data.csv')
-    finClass.plotAllColumns("Linear Fit", 1)
-    finClass.plotAllColumns("Log Fit")
-    finClass.plotPolyFitColumnOverTime("Real_Price", 1)
-    finClass.plotLog10ColumnOverTime("Real_Price")
-    finClass.plotExpWeightedColumnOverTime("Real_Price")
+    finClass.displayDataSummary()
+    #finClass.plotAllColumns("Linear Fit", 1)
+    #finClass.plotAllColumns("Log Fit")
+    #finClass.plotPolyFitColumnOverTime("Real_Price", 1)
+    #finClass.plotLog10ColumnOverTime("Real_Price")
+    #finClass.plotExpWeightedColumnOverTime("Real_Price")
