@@ -9,11 +9,12 @@ from pythonCode.ControlClass import ControlClass
 from pythonCode.ConvolutionClass import ConvolutionClass
 from pythonCode.WavClass import WavClass
 
-#
-# Modulated Comb filter class (flanger): modulated between 2 filters whose
-# delay is above 20 Hz in order to create a flanging effect
-#
+
 class CombFilterClass:
+    #
+    # Modulated Comb filter class: modulated between 2 filters whose
+    # delay is above 20 Hz in order to create an effect in the audible frequency spectrum
+    #
 
     #
     # constructor.
@@ -106,13 +107,14 @@ class CombFilterClass:
         power_spectrogram = 20 * np.log10(np.abs(specgram) + np.finfo(float).eps)
         # adding a small number before applying log10 avoids divide by zero errors
         fig = plt.figure()
-        plt.pcolormesh(timepoints, frequencies, power_spectrogram, vmin=-99, vmax=0)
+        plt.pcolormesh(timepoints, frequencies, power_spectrogram, vmin=-99, vmax=0, shading="auto")
         plt.title(title)
         plt.ylabel('frequency [Hz]')
         plt.xlabel('time [s]')
         #     plt.xlim(0.5e7, 0.7e7) # adjust the x-axis to zoom in on a specific time region
         #     plt.xlim(5e7, 5.5e7)
         #     plt.ylim(0, 0.0005) # adjust the y-axis range to zoom in on low frequencies
+
         fig.show()
 
 
@@ -120,15 +122,15 @@ TEST = True
 if 'google.colab' in sys.modules or 'jupyter_client' in sys.modules:
     TEST = False
 
-if TEST:
 
+def testCombFilter(doAbs):
     from SoundPlayer import SoundPlayer
     # Define wav filename used:
     s1Filename = "../audio/carrier.wav"
     s2Filename = "../audio/rockA.wav"
     s3Filename = "../audio/rockB.wav"
     wavClass = WavClass(wavFileName=s1Filename, doPlots=False)
-    controlClass = ControlClass(wavClass.sampleRate, wavClass.numSamples, frequencyHz=1, maxAmplitude=1.0, doPlot=True)
+    controlClass = ControlClass(wavClass.sampleRate, wavClass.numSamples, frequencyHz=1, maxAmplitude=1.0, doPlot=True, doAbs=doAbs)
     filter = CombFilterClass(controlClass, minDelay=4, maxDelay=32, filterSize=64, doPlot=True)
     newSamples = filter.filterAudioInputSide(wavClass.samplesMono)
     newWavCLass = WavClass(rawSamples=newSamples, rawSampleRate=wavClass.sampleRate)
@@ -136,6 +138,9 @@ if TEST:
     filter.plotFilters()
     filter.plot_spectrogram(wavClass.samplesMono,wavClass.sampleRate, "Original Signal")
     print("Yoyo")
-    filter.plot_spectrogram(newSamples, wavClass.sampleRate, "Filtered Signal")
-    SoundPlayer().playWav(newSamples, wavClass.sampleRate)
+    filter.plot_spectrogram(newSamples, wavClass.sampleRate, "Filtered Signal abs: {}".format(doAbs))
+    #SoundPlayer().playWav(newSamples, wavClass.sampleRate)
+
+testCombFilter(True)
+testCombFilter(False)
 

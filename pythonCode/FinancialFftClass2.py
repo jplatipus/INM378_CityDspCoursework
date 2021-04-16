@@ -1,4 +1,4 @@
-from pythonCode.FinancialDataClass import FinancialDataClass
+from pythonCode.FinancialDataClass2 import FinancialDataClass2
 import sys
 import matplotlib.pyplot as plt
 from scipy import fft, signal
@@ -12,8 +12,9 @@ class FinancialFf2t:
 
     def __init__(self, financialClassInstance):
         self.financial = financialClassInstance
-        self.columnData = self.financial.getExpWeightedColumnData("Real_Price")
-        self.columnData = np.log10(self.columnData)
+        self.columnData = self.financial.deTrend("Real_Price", False)
+        self.columnData, self.dates = self.padToPower2Length(self.columnData, self.financial.getColumnData("Date"))
+        #self.columnData = np.log10(self.columnData)
         #self.columnData = self.padToPower2Length(self.columnData)
 
 
@@ -22,79 +23,64 @@ class FinancialFf2t:
 
     # make sure signal length is power of 2, pad with zero's if not to
     # make the length a power of 2
-    def padToPower2Length(self, data):
+    def padToPower2Length(self, data, dates):
         length = len(data)
         while True:
             root = int(math.sqrt(length))
             if root ** 2 == length:
                 break
             data = np.append(data, 0.0)
+            dates = np.append(dates, dates[-1]+1)
             length = length + 1
-        return data
+        return data, dates
 
-    def lookForPeriodic(self, months):
-        excerpt = self.columnData[:months]
+    def lookForPeriodic(self, startMonth, months):
+        excerpt = self.columnData[startMonth:startMonth + months]
+        dateExcerpts = self.dates[startMonth:startMonth + months]
         avg = np.mean(excerpt)
-        norm_excerpt = excerpt - avg
-        harmonic_model = fft.rfft(norm_excerpt)
+        normalisedExcerpt = excerpt - avg
+        harmonicModel = fft.rfft(normalisedExcerpt)
 
         plt.figure()
-        plt.plot(np.abs(harmonic_model))
-        plt.title("Harmonic model")
+        plt.plot(np.abs(harmonicModel))
+        plt.title("Harmonic model for months: 0..{}".format(months))
+        plt.grid(axis="y")
+        plt.xlabel("Month frequency")
         plt.show()
 
-        threshold = 5
-        predict_spectrum = np.where(np.abs(harmonic_model) < threshold, 0, harmonic_model)
+        threshold = 10
+        predictionSpectrum = np.where(np.abs(harmonicModel) < threshold, 0, harmonicModel)
         plt.figure()
-        plt.plot(np.abs(predict_spectrum))
-        plt.title('Prediction spectrum')
+        plt.plot(np.abs(predictionSpectrum))
+        plt.title("Prediction spectrum  for months: 0..{}".format(months))
+        plt.grid()
         plt.show()
 
-        prediction = fft.irfft(predict_spectrum)
+        prediction = fft.irfft(predictionSpectrum)
 
-        test_length = 2  # expressed as number of times the excerpt length
-        total_length = (test_length + 1) * months
+        testLengthFactor = 2  # expressed as number of times the excerpt length
+        totalLength = (testLengthFactor + 1) * months
 
-        true_signal = self.columnData[:total_length] - avg
-        periodic_prediction = np.tile(prediction, test_length + 1)
+        trueSignal = self.columnData[:totalLength] - avg
+        periodic_prediction = np.tile(prediction, testLengthFactor + 1)
 
         plt.figure()
-        plt.plot(true_signal, label='true signal')
-        plt.plot(norm_excerpt, label='used excerpt')
-        plt.plot(periodic_prediction, label='periodic prediction')
-        plt.legend(loc='upper left')
+        plt.plot(self.dates, trueSignal, label='true signal')
+        plt.plot(dateExcerpts, normalisedExcerpt, label='used excerpt')
+        # self.dates, periodic_prediction[0:len(self.dates)],
+        startIndex = startMonth
+        length = min(len(self.dates), len(periodic_prediction))
+        plt.plot(self.dates[startMonth:length], periodic_prediction[startMonth:length], label='periodic prediction')
+        plt.legend(loc='lower left')
+        plt.grid()
         plt.show()
-        unseenData = true_signal[months:]
+        unseenData = trueSignal[months:]
         predictData = periodic_prediction[-len(unseenData):]
         rmse = np.sqrt(np.mean(np.power(unseenData - predictData, 2)))
         print(rmse)
 
-        for threshold in np.arange(10, 20, 30):
-            for years in np.arange(1, 8):
-                excerpt_length = 12 * years
-                excerpt = self.columnData[:excerpt_length]
-                avg = np.mean(excerpt)
-                norm_excerpt = excerpt - avg
-                harmonic_model = fft.rfft(norm_excerpt)
-                predict_spectrum = np.where(np.abs(harmonic_model) < threshold, 0, harmonic_model)
-                prediction = fft.irfft(predict_spectrum)
-
-                test_length = 3  # expressed as number of times the excerpt length
-                total_length = (test_length + 1) * excerpt_length
-                true_signal = self.columnData[:total_length] - avg
-                periodic_prediction = np.tile(prediction, test_length + 1)
-                rmse = np.sqrt(
-                    np.mean(np.power(true_signal[excerpt_length:] - periodic_prediction[excerpt_length:], 2)))
-
-                plt.figure()
-                plt.plot(true_signal, label='true signal')
-                plt.plot(norm_excerpt, label='used excerpt')
-                plt.plot(periodic_prediction, label='periodic prediction')
-                plt.title('The RMSE for threshold {} and a {}-Year excerpt is {:.2f}'.format(threshold, years, rmse))
-                plt.legend(loc='lower right')
-                plt.show()
-
-finClass = FinancialDataClass('../data/financial_data.csv')
+finClass = FinancialDataClass2('../data/financial_data.csv')
 finFftClass = FinancialFf2t(finClass)
-finFftClass.displaySummaryInfo()
-finFftClass.lookForPeriodic(12*60)
+#finFftClass.displaySummaryInfo()
+finFftClass.lookForPeriodic(0, 12*60)
+finFftClass.lookForPeriodic(30*12, 12*60)

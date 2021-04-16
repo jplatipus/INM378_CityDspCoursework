@@ -3,17 +3,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pythonCode.ImageClass import ImageClass
 import scipy.signal as sig
-#
-# CLass that encapsulates the image correlation functionality: 2 correlation versions are available:
-# one is using a simple correlation implementation (correlate()), the other uses signal.correlate2d()
-#
-class ImageCorrelation:
 
+class ImageCorrelation:
+    #
+    # Class that encapsulates the image correlation functionality: 2 correlation versions are available:
+    # one is using a simple correlation implementation (correlate()), the other uses signal.correlate2d()
+    #
     def __init__(self):
         print("ImageCorrelation init")
     #
     # 1. 1.	Create a function for comparing each test image with the collection of training images, using the correlation
     # with each training image without offset (i.e. calculate the sum of the element-wise multiplied images).
+    #
     #  pixels1, pixels2 images pixel arrays to correlate
     # return correlation value
     def correlate(self, pixels1, pixels2):
@@ -31,6 +32,7 @@ class ImageCorrelation:
     # correlate all images in imagesArray to the singleImage.
     # return the index (in imagesArray) of the image which has the
     # largest correlation value
+    #
     # singleTrainingDigitPixels training image pixels array
     # testDigitsPixels array of test images pixels array to correlate against
     # return the testImagesArray index of the best match found
@@ -49,6 +51,7 @@ class ImageCorrelation:
 
     #
     # correlate using the correlation method in this class all training images with all test images
+    #
     # trainingImages class instance with the relevant training images to correlate (in digiPixels)
     # testImages class instance with all the test images
     # return array of best matches as indeces into the test images for each of the training images
@@ -63,8 +66,9 @@ class ImageCorrelation:
         # return array of best match found in testImages, one perTrainingImages[] entry
         return image2CorrelationIndeces
 
-    # 3.	Estimate the accuracy of your system, as a fraction of the correctly estimated test labels over the total
+    # 3. Estimate the accuracy of your system, as a fraction of the correctly estimated test labels over the total
     # number of test images.
+    #
     # trainToTestCorrelationIndeces an indeces array of training predictions: each entry contains the index of the
     #                       predicted label in testLabels
     # trainingImages class instance that has an array of the training image labels
@@ -74,20 +78,25 @@ class ImageCorrelation:
         trainingLabels = trainingImages.digitLabels
         testLabels = testImages.digitLabels
         correctlyEstimatedCount = 0
+        ' for each predicted result, count the number of correct matches'
         for labelsIndex in range(0, len(trainToTestCorrelationIndeces)  ):
             testLabelsIndex = trainToTestCorrelationIndeces[labelsIndex]
             if trainingLabels[labelsIndex] == testLabels[testLabelsIndex]:
                 correctlyEstimatedCount =  correctlyEstimatedCount + 1
+        # return the number of correctly matched training images / the total number of the training images
         return correctlyEstimatedCount / len(trainingLabels)
 
     #
     # Find the best 2d correlation between the singleTestImage and all the testImages,
     # Use the two-dimensional correlation function signal.correlate2d to find the best match over
     # all image offsets.
+    #
     # singleTrainingDigitPixels a single training image digitPixels array
     # testDigitsPixels an array of all the test images digitPixels, each one a 32x32 array
     # return the testImagesArray index with the best correlation
     def calculate2dCorrelation(self, singleTrainingDigitPixels, testDigitsPixels):
+        # where each correlation value for each test image is stored, hence the indeces of the correlation values
+        # can be used as a key to get the matching test image
         correlations = []
         # for each test image
         for imageIndex in range(0, len(testDigitsPixels)):
@@ -97,22 +106,29 @@ class ImageCorrelation:
             # extract and store in correlations the largest correlation value found
             bestCorrelation = np.amax(result)
             correlations.append(bestCorrelation)
+        # find the maximum correlation value
         maxOverallCorrelation = max(correlations)
+        # find the index of the max correlation, the index is also valid for the testImages
         maxCorrelationImageIndex = correlations.index(maxOverallCorrelation)
         return maxCorrelationImageIndex
 
     # Find the best 2d correlation between the singleTestImage and all the testImages,
     # For efficiency you can use a subset of the training images
+    #
     # trainingImages training images class instance that holds the relevant training images
     # testImages test image class instance that holds all the test images
+    # return the testImagesArray indeces (one per training image) with the best correlation
     def correlate2dTrainingImagesToTestImages(self, trainingImages, testImages):
         image2CorrelationIndeces = []
+        # fro each training image
         for imageIndex in range(0, len(trainingImages.digitPixels)):
+            # evaluate it best 2d correlation with the test images
             image2CorrelationIndeces.append(
                 self.calculate2dCorrelation(trainingImages.digitPixels[imageIndex], testImages.digitPixels))
+
         return image2CorrelationIndeces
 
-    # perform simple correlation and 2d correlation of the training images aginast the test images
+    # perform simple correlation and 2d correlation of the training images against the test images
     # returns 2 values: the overall simple correlation accuracy and the overall 2d correlation accuracy
     def compareImageCorrelations(self, trainingImages, testImages):
         simpleCorrelationIndeces = self.correlateTrainingImagesToTestImages(trainingImages, testImages)

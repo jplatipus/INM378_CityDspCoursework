@@ -1,4 +1,4 @@
-from pythonCode.FinancialDataClass import FinancialDataClass
+from pythonCode.FinancialDataClass2 import FinancialDataClass2
 import sys
 import matplotlib.pyplot as plt
 from scipy import fft, signal
@@ -6,13 +6,16 @@ import numpy as np
 import math
 from dsp_ap.operations import circ_convolve
 
-#
-#
 class FinancialFft:
+    # The class attempts to perform a Fourrier analysis of the data
 
+    # constructor
+    # financialClassInstance a FinancialDataClass instance with data preloaded
     def __init__(self, financialClassInstance):
         self.financial = financialClassInstance
 
+    # plot all the columns' data in a grid of plots
+    # title the title to display
     def plotAllColumns(self, title):
         dataColumnIndeces = self.financial.getColumnIndeces()
         columns = 3
@@ -30,6 +33,7 @@ class FinancialFft:
 
     # make sure signal length is power of 2, pad with zero's if not to
     # make the length a power of 2
+    # return the padded data
     def padToPower2Length(self, data):
         length = len(data)
         while True:
@@ -47,7 +51,9 @@ class FinancialFft:
             ax = fig.subplots()
         else:
             ax = axis
-        columnData = self.financial.getExpWeightedColumnData(columnName)
+
+        # detrend the data:
+        columnData = self.financial.deTrend(columnName)
         columnData = self.padToPower2Length(columnData)
         signalData = columnData
         if hanWindowSize != None:
@@ -55,7 +61,8 @@ class FinancialFft:
             #signalData = signal.convolve(window, signalData, mode="same")
             signalData = circ_convolve(window, signalData)
         spectrum = fft.rfft(signalData)
-        ax.plot(np.abs(np.log10(spectrum)))
+        ax.plot(spectrum)
+        #ax.plot(np.abs(np.log10(spectrum)))
         if axis == None:
             ax.title.set_text("Frequency Spectrum of {}".format(columnName))
             totalMonths = self.financial.getTotalMonthsInData()
@@ -82,7 +89,7 @@ class FinancialFft:
         fig.show()
 
     def plotColumnSpectrum(self, columnName):
-        columnData = self.financial.getExpWeightedColumnData(columnName)
+        columnData = self.financial.deTrend(columnName, False)
         columnData = self.padToPower2Length(columnData)
         signalData = columnData
         self.plot_spectrogram(signalData, 1/12, "Yearly Frequency Spectrum")
@@ -94,10 +101,10 @@ if 'google.colab' in sys.modules or 'jupyter_client' in sys.modules:
     Test = False
 
 if Test:
-    finClass = FinancialDataClass('../data/financial_data.csv')
+    finClass = FinancialDataClass2('../data/financial_data.csv')
     finFftClass = FinancialFft(finClass)
     finFftClass.plotColumnSpectrum("Real_Price")  # , hanWindowSize=12*10)
     #finFftClass.plotAllColumns("Spectrum of all values")
-    #finFftClass.plotColumn("Real_Price")#, hanWindowSize=12*10)
+    finFftClass.plotColumn("Real_Price")#, hanWindowSize=12*10)
     #finFftClass.plotColumn("Real_Price", hanWindowSize=int(400/12)*12)
     #finFftClass.plotColumn("Real_Price", hanWindowSize=700)

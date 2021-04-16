@@ -10,12 +10,13 @@ from scipy import stats
 from numpy.linalg import LinAlgError
 
 warnings.simplefilter('ignore', np.RankWarning)
-#
-# Class wraps the financial data file as a class, provides convenience methods to access the data, removes nan's,
-# provides plotting methods.
-class FinancialDataClass:
 
+class FinancialDataClass:
     #
+    # Class wraps the financial data file as a class, provides convenience methods to access the data, removes nan's,
+    # provides plotting methods.
+
+
     # constructor: load the csv file, clean out nan's, replacing some with max values, others with a specified
     # value: Cyclically_Adjusted_Price_Earnings_Ratio_PE10_or_CAPE's nan's are set to 13, after inspecting the the data,
     # 13 is a good value for the adjusted PE ratio.
@@ -58,6 +59,7 @@ class FinancialDataClass:
         maxValue = np.max(copy)
         self.financial[columnName] = np.nan_to_num(dataColumn, copy=False, nan=maxValue)
 
+    # Display statsitical information for each column (the Date column is left out)
     def displayDataSummary(self):
         print(self.financial.dtype.names)
         print("There are {} daily records in the file.".format(self.financial.size))
@@ -70,27 +72,36 @@ class FinancialDataClass:
             normalized = self.normalize(data)
             self.financial[columnNames[columnIndex]] = normalized
             print(self.getColumnName(columnIndex))
-            modeResult = stats.mode(data)[0][0]
             print("\tMean: {:.4f} Variance: {:.4f} Std Dev: {:.4f}\n\tMode: {:.4f} Median: {:.4f} Skewness: {:.4f}".format(
                 np.mean(data), np.var(data), math.sqrt(np.var(data)), stats.mode(data)[0][0], np.median(data), stats.skew(data)))
-            #print("\tMean: {:.2f} Variance: {:.2f}; Std Dev: {:.2f};\n\t Mode: {:.2f}; Median: {:.2f}; Skewness: {:.2f}".format(
-            #    np.mean(data), np.var(data), math.sqrt(np.var(data)), stats.mode(data), np.median(data), stats.skew(data)))
 
+    # get all the data for the requested column
+    # columnNameOrIndex the column's name or index
+    # return an array of the column data
     def getColumnData(self, columnNameOrIndex):
         if isinstance(columnNameOrIndex, str):
             return self.financial[columnNameOrIndex]
         columnNames = self.financial.dtype.names
         return self.getColumnData(columnNames[columnNameOrIndex])
 
+    # get the name of the requested column's index
+    # columnIndex the column's index
+    # return the name of the column
     def getColumnName(self, columnIndex):
         return self.financial.dtype.names[columnIndex]
 
+    # get a range array 0 .. the number of columns
+    # columnIndex the column's index
+    # return the name of the column
     def getColumnIndeces(self):
         return range(0, len(self.financial.dtype.names))
 
+    # get the number of months the data spans
+    # return the number of data rows (months)
     def getTotalMonthsInData(self):
         return len(self.getColumnData("Date"))
 
+    # normalise the ALL columns' data (Date omitted), by column
     def normaliseByColumn(self):
         columnNames = self.financial.dtype.names
         # don't normalise the date column:
@@ -100,6 +111,9 @@ class FinancialDataClass:
             normalized = self.normalize(data)
             self.financial[columnNames[columnIndex]] = normalized
 
+    # evaluate the normalisation of an array of data
+    # data to normalise
+    # return normalised data
     def normalize(self, data):
         min = np.min(data)
         max = np.max(data)
@@ -107,8 +121,14 @@ class FinancialDataClass:
         data = data / euclidianLength
         return data
 
+    # Similar to calling fig.lengend(), then fig.show():
+    # Loops through the repeated labels created to extract the first set.
+    # Sets the legend on the figure, so for subplots, only one legend is shown.
     # found on:
     # https://www.geeksforgeeks.org/how-to-create-a-single-legend-for-all-subplots-in-matplotlib/
+    # then customised for this task, expects the current figure to be called "MainFigure"
+    #
+    # loc: location of the legend
     def displayLegendsAndShow(self, loc='upper left'):
         lines = []
         labels = []
@@ -135,6 +155,24 @@ class FinancialDataClass:
         fig.legend(lines, labels, loc=loc)
         plt.show()
 
+    # calculate an exponentially weighted version of the column data
+    # xDate: the column dates used in the calculation
+    # yColumnData: the column data used in the calculation
+    # polyFitDegree the weight to apply in the operation
+    # return data fit
+    def getPolyFitData(self, xDate, yColumnData, polyFitDegree):
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', np.RankWarning)
+        coefficients = np.polyfit(xDate, yColumnData, polyFitDegree)
+        coeffPolynomial = np.poly1d(coefficients)
+        datePoints = np.linspace(np.min(xDate), np.max(xDate), len(xDate))
+        columnDataPoints = coeffPolynomial(datePoints)
+        return datePoints, columnDataPoints
+
+    # perform a polyfit (linear or quadratic fit) of a column.
+    # columnName the column to display
+    # the degree for polyfit: 1 is linear, 2 or more is quadratic
+    # axis the plot axis to display the plot,if none, a new figure is created
     def plotPolyFitColumnOverTime(self, columnName, polyFitDegree, axis=None):
         date = self.financial['Date']
         columnData = self.financial[columnName]
@@ -144,14 +182,8 @@ class FinancialDataClass:
             plt.title('Evolution of {} over time'.format(columnName))
         else:
             ax = axis
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore', np.RankWarning)
-            coefficients = np.polyfit(date, columnData, polyFitDegree)
-        #print("np.polyfit(x, y, 3): {}".format(coefficients))
-        coeffPolynomial = np.poly1d(coefficients)
-        datePoints = np.linspace(np.min(date), np.max(date), len(date))
-        columnDataPoints = coeffPolynomial(datePoints)
 
+        datePoints, columnDataPoints = self.getPolyFitData(date, columnData, polyFitDegree)
         lines = []
         ax.plot(date, columnData, color="blue", label="Data")
         ax.plot(datePoints, columnDataPoints, '-', color='orange', alpha=0.5, label = "Polyfit")
@@ -159,10 +191,21 @@ class FinancialDataClass:
         if axis == None:
             self.displayLegendsAndShow()
 
+    # calculate a log10 version of the column data
+    # columnName the column used in the calculation
+    # log10 of the data
+    def getLog10ColumnData(self, columnName):
+        columnData = self.financial[columnName]
+        columnFiltered = np.loag10(columnData)
+        return columnFiltered
+
+    # Plot the log10 of a column's values.
+    # columnName the column to display
+    # axis the plot axis to display the plot,if none, a new figure is created
     def plotLog10ColumnOverTime(self, columnName, axis=None):
         date = self.financial['Date']
+        columnDataLog10 = self.getLog10ColumnData(columnName)
         columnData = self.financial[columnName]
-        columnDataLog10 = np.log10(columnData)
         if axis == None:
             fig = plt.figure("MainFigure")
             ax = fig.subplots()
@@ -176,11 +219,18 @@ class FinancialDataClass:
         if axis == None:
             self.displayLegendsAndShow()
 
+    # calculate an exponentially weighted version of the column data
+    # columnName the column used in the calculation
+    # the weight to apply in the operation
+    # the data exponentially weighted
     def getExpWeightedColumnData(self, columnName, weight=0.25):
         columnData = self.financial[columnName]
         columnFiltered = sig.lfilter([weight],[1,weight - 1], columnData)
         return columnFiltered
 
+    # Plot the log10 of a column's values.
+    # columnName the column to display
+    # axis the plot axis to display the plot,if none, a new figure is created
     def plotExpWeightedColumnOverTime(self, columnName, axis=None, weight=0.25):
         date = self.financial['Date']
         columnData = self.financial[columnName]
@@ -198,6 +248,8 @@ class FinancialDataClass:
         if axis == None:
             self.displayLegendsAndShow()
 
+    # Plot all the columns data in a grid of plots. Either the exponentially weighted
+    # data is overlayed or the linear / quadratic fie of the data is overlayed on the original data
     def plotAllColumns(self, title, ployfitDegree=None):
         dataColumnIndeces = range(0, len(self.financial.dtype.names))
         columns = 3
@@ -224,15 +276,16 @@ class FinancialDataClass:
 
 
 
-Test = False
+Test = True
 if 'google.colab' in sys.modules or 'jupyter_client' in sys.modules:
     Test = False
 
 if Test:
     finClass = FinancialDataClass('../data/financial_data.csv')
     finClass.displayDataSummary()
-    #finClass.plotAllColumns("Linear Fit", 1)
-    #finClass.plotAllColumns("Log Fit")
-    #finClass.plotPolyFitColumnOverTime("Real_Price", 1)
-    #finClass.plotLog10ColumnOverTime("Real_Price")
-    #finClass.plotExpWeightedColumnOverTime("Real_Price")
+    finClass.plotAllColumns("Linear Fit", 1)
+    finClass.plotAllColumns("Quadratic Fit (2 degrees)", 2)
+    finClass.plotAllColumns("Quadratic Fit (5 degrees)", 5)
+    finClass.plotAllColumns("Exponential Fit")
+    finClass.plotPolyFitColumnOverTime("Real_Price", 1)
+    finClass.plotExpWeightedColumnOverTime("Real_Price")
