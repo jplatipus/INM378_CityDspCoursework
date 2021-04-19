@@ -303,7 +303,7 @@ class FinancialDataClass2:
                 break
             lastSlope = slope
         # exp to reverse the log effect on the detrended data
-        detrended = np.exp(columnData)
+        detrended = 10 ** columnData
 
         plt.figure()
         plt.plot(date, detrended)
